@@ -1,0 +1,29 @@
+---
+abstract: 'Parse GEDCOM dates'
+author:
+  - 'Ron Savage <ron@savage.net.au>'
+build_requires:
+  Test::More: 0.94
+  Test::Pod: 1.44
+configure_requires:
+  Module::Build: 0.38
+dynamic_config: 1
+generated_by: 'Module::Build version 0.38, CPAN::Meta::Converter version 2.110930'
+license: artistic
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: DateTime-Format-Gedcom
+provides:
+  DateTime::Format::Gedcom:
+    file: lib/DateTime/Format/Gedcom.pm
+    version: 1.00
+requires:
+  DateTime: 0.7
+  DateTime::Format::Natural: 0.9
+  DateTime::Infinite: 0.7
+  Hash::FieldHash: 0.1
+  Try::Tiny: 0.11
+resources:
+  license: http://opensource.org/licenses/artistic-license.php
+version: 1.00
