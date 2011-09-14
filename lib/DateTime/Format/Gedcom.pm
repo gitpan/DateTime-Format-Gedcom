@@ -13,9 +13,10 @@ use Try::Tiny;
 
 fieldhash my %date         => 'date';
 fieldhash my %debug        => 'debug';
+fieldhash my %formatter    => 'formatter';
 fieldhash my %method_index => 'method_index';
 
-our $VERSION = '1.00';
+our $VERSION = '1.01';
 
 # --------------------------------------------------
 
@@ -25,6 +26,7 @@ sub _init
 	$$arg{date}         ||= ''; # Caller can set.
 	$$arg{debug}        ||= 0;  # Caller can set.
 	$$arg{method_index} = 0;    # See parse_date_value.
+	$$arg{formatter}    = DateTime::Format::Natural -> new;
 	$self               = from_hash($self, $arg);
 
 	return $self;
@@ -144,7 +146,7 @@ sub parse_approximate_date
 	}
 	else
 	{
-		die "The value of the 'date' key must start with one of " . join(', ', @$prefix);
+		die "The value of the 'date' key - '$date' - must start with one of " . join(', ', @$prefix);
 	}
 
 	# Phase 3: Handle the date escape.
@@ -191,7 +193,7 @@ sub parse_date_period
 
 	if (! $prefix)
 	{
-		die "The value of the 'date' key must start with '$$from_to[0]' or '$$from_to[1]'";
+		die "The value of the 'date' key - '$date' - must start with '$$from_to[0]' or '$$from_to[1]'";
 	}
 
 	# Phase 3: Handle the date escape.
@@ -239,7 +241,7 @@ sub parse_date_range
 	}
 	else
 	{
-		die "The value of the 'date' key must start with one of " . join(', ', @{$$from_to[0][0]});
+		die "The value of the 'date' key - '$date' - must start with one of " . join(', ', @{$$from_to[0][0]});
 	}
 
 	# Phase 3: Handle the date escape.
@@ -256,7 +258,7 @@ sub parse_date_value
 {
 	my($self, %arg)  = @_;
 	my($index)       = $self -> method_index;
-	my(@method_name) = (qw/parse_date_period parse_date_range parse_approximate_date parse_interpreted_date/);
+	my(@method_name) = (qw/parse_datetime parse_date_period parse_date_range parse_approximate_date parse_interpreted_date/);
 
 	my($method_name);
 	my($result);
@@ -264,7 +266,7 @@ sub parse_date_value
 	try
 	{
 		$method_name = $method_name[$index];
-		$result      = $self -> $method_name(date => $arg{date});
+		$result      = $index == 0 ? $self -> $method_name($arg{date}) : $self -> $method_name(date => $arg{date});
 	}
 	catch
 	{
@@ -328,7 +330,7 @@ sub parse_interpreted_date
 	}
 	else
 	{
-		die "The value of the 'date' key must start with '$prefix'";
+		die "The value of the 'date' key - '$date' - must start with '$prefix'";
 	}
 
 	# Phase 3: Handle the date phrase.
@@ -346,11 +348,11 @@ sub parse_interpreted_date
 	}
 	elsif ( ($open_paren < 0) && ($close_paren >= 0) )
 	{
-		die "Date missing '(' before the ')'";
+		die "Date - '$date' - missing the '(' before the ')'";
 	}
 	elsif ( ($open_paren < 0) && ($close_paren >= 0) )
 	{
-		die "Date has '(' but no ')'";
+		die "Date - '$date' - missing the ')' after the '('";
 	}
 	else
 	{
@@ -533,7 +535,12 @@ sub _parse_1_date
 		$field[0] = 1;         # Day.
 	}
 
-	# Phase 3: Hand over analysis to our slave.
+	# Phase 3: Check that the day and year are numeric.
+	# Brute force calls via parse_datetime() will fail this test.
+
+	die "Day - '$field[0]' - and year - '$field[2]' - must be numeric" if ( ($field[0] !~ /^\d+$/) || ($field[2] !~ /^\d+$/) );
+
+	# Phase 4: Hand over analysis to our slave.
 
 	my($four_digit_year) = 1;
 
@@ -545,14 +552,17 @@ sub _parse_1_date
 		$four_digit_year = 0;
 	}
 
-	$$flags{"${which}_date"} = DateTime::Format::Natural -> new -> parse_datetime(join('-', @field) );
+	my($candidate)           = join('-', @field);
+	$$flags{"${which}_date"} = $self -> formatter -> parse_datetime($candidate);
 	$$flags{$which}          = qq|$$flags{"${which}_date"}|;
 
-	# Phase 4: Replace leading 1 with 0 if we rigged a 4-digit year.
+	die "Unable to parse date: $candidate" if (! $self -> formatter -> success);
+
+	# Phase 5: Replace leading 1 with 0 if we rigged a 4-digit year.
 
 	substr($$flags{$which}, 0, 1) = '0' if (! $four_digit_year);
 
-	# Phase 5: Check is the day is <= 12, in which case it could be a month.
+	# Phase 6: Check is the day is <= 12, in which case it could be a month.
 
 	$$flags{"${which}_ambiguous"} = 1 if (substr($$flags{$which}, 8, 2) <= '12');
 
